@@ -1,3 +1,4 @@
+import { useState, useCallback } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -7,6 +8,7 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuroraBackground } from "@/components/AuroraBackground";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
+import { Preloader } from "@/components/Preloader";
 import HomePage from "./pages/HomePage";
 import MajorsPage from "./pages/MajorsPage";
 import MajorDetailPage from "./pages/MajorDetailPage";
@@ -17,13 +19,18 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <ThemeProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
+const App = () => {
+  const [loaded, setLoaded] = useState(false);
+  const handleComplete = useCallback(() => setLoaded(true), []);
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
+        <TooltipProvider>
+          {!loaded && <Preloader onComplete={handleComplete} />}
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
           <AuroraBackground />
           <div className="flex flex-col min-h-screen">
             <Navbar />
@@ -44,6 +51,7 @@ const App = () => (
       </TooltipProvider>
     </ThemeProvider>
   </QueryClientProvider>
-);
+  );
+};
 
 export default App;
