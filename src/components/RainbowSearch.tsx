@@ -1,25 +1,61 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, X } from 'lucide-react';
-import { searchMajors, Major } from '@/data/majors';
+import { Search, X, Sparkles, Loader2 } from 'lucide-react';
+import { searchMajors, majors as allMajors, Major } from '@/data/majors';
 import { useTheme, ThemeCategory } from '@/contexts/ThemeContext';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 
 export function RainbowSearch() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Major[]>([]);
+  const [aiResults, setAiResults] = useState<Major[]>([]);
   const [isOpen, setIsOpen] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
   const { setTheme } = useTheme();
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
+  const aiReqIdRef = useRef(0);
 
   useEffect(() => {
-    if (query.length > 0) {
-      const searchResults = searchMajors(query).slice(0, 8);
-      setResults(searchResults);
-      setIsOpen(true);
-    } else {
+    const q = query.trim();
+    if (q.length === 0) {
       setResults([]);
+      setAiResults([]);
       setIsOpen(false);
+      setAiLoading(false);
+      return;
+    }
+
+    const searchResults = searchMajors(q).slice(0, 8);
+    setResults(searchResults);
+    setIsOpen(true);
+    setAiResults([]);
+
+    // Only fall back to AI when no direct matches and query is meaningful
+    if (searchResults.length === 0 && q.length >= 3) {
+      const reqId = ++aiReqIdRef.current;
+      setAiLoading(true);
+      const timer = setTimeout(async () => {
+        try {
+          const { data, error } = await supabase.functions.invoke('smart-search', {
+            body: { query: q, majorNames: allMajors.map((m) => m.name) },
+          });
+          if (reqId !== aiReqIdRef.current) return;
+          if (error) throw error;
+          const names: string[] = data?.majors ?? [];
+          const matched = names
+            .map((n) => allMajors.find((m) => m.name === n))
+            .filter((m): m is Major => Boolean(m));
+          setAiResults(matched);
+        } catch (e) {
+          if (reqId === aiReqIdRef.current) setAiResults([]);
+        } finally {
+          if (reqId === aiReqIdRef.current) setAiLoading(false);
+        }
+      }, 400);
+      return () => clearTimeout(timer);
+    } else {
+      setAiLoading(false);
     }
   }, [query]);
 
@@ -39,6 +75,8 @@ export function RainbowSearch() {
     }
   };
 
+  const showAiSection = results.length === 0 && query.trim().length >= 3;
+
   return (
     <div className="relative w-full max-w-2xl mx-auto">
       <div className="rainbow-glow rounded-2xl">
@@ -49,7 +87,7 @@ export function RainbowSearch() {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search 200+ majors... (e.g., Computer Science, Medicine, Finance)"
+            placeholder="Search 200+ majors or describe your interest..."
             className="w-full bg-transparent py-4 pl-12 pr-12 text-foreground placeholder:text-muted-foreground focus:outline-none text-lg"
           />
           {query && (
@@ -66,7 +104,7 @@ export function RainbowSearch() {
         </div>
       </div>
 
-      {/* Search Results Dropdown */}
+      {/* Direct match results */}
       {isOpen && results.length > 0 && (
         <div className="absolute top-full left-0 right-0 mt-2 glass-strong rounded-xl overflow-hidden z-50 animate-fade-in">
           {results.map((major, index) => (
@@ -91,10 +129,48 @@ export function RainbowSearch() {
         </div>
       )}
 
-      {isOpen && query && results.length === 0 && (
-        <div className="absolute top-full left-0 right-0 mt-2 glass-strong rounded-xl p-6 text-center z-50 animate-fade-in">
-          <p className="text-muted-foreground">No majors found for "{query}"</p>
-          <p className="text-sm text-muted-foreground mt-2">Try searching for Computer Science, Medicine, or Business</p>
+      {/* AI fallback */}
+      {isOpen && showAiSection && (
+        <div className="absolute top-full left-0 right-0 mt-2 glass-strong rounded-xl overflow-hidden z-50 animate-fade-in">
+          {aiLoading && (
+            <div className="px-4 py-4 flex items-center gap-3 text-muted-foreground">
+              <Loader2 className="w-4 h-4 animate-spin text-primary" />
+              <span className="text-sm">Interpreting your interest with AI…</span>
+            </div>
+          )}
+          {!aiLoading && aiResults.length > 0 && (
+            <>
+              <div className="px-4 py-2 flex items-center gap-2 border-b border-white/10">
+                <Sparkles className="w-4 h-4 text-primary" />
+                <span className="text-xs uppercase tracking-wide text-muted-foreground">AI Suggestions</span>
+              </div>
+              {aiResults.map((major, index) => (
+                <button
+                  key={major.id}
+                  onClick={() => handleSelectMajor(major)}
+                  className="w-full px-4 py-3 flex items-center gap-4 hover:bg-white/5 transition-colors text-left"
+                  style={{ animationDelay: `${index * 50}ms` }}
+                >
+                  <span className="text-2xl">{major.icon}</span>
+                  <div className="flex-1">
+                    <p className="font-medium text-foreground">{major.name}</p>
+                    <p className={`text-sm ${getCategoryColor(major.category)}`}>
+                      {major.category.charAt(0).toUpperCase() + major.category.slice(1)}
+                    </p>
+                  </div>
+                  <div className="score-badge px-3 py-1 rounded-full text-sm font-bold">
+                    {major.jobScore}/10
+                  </div>
+                </button>
+              ))}
+            </>
+          )}
+          {!aiLoading && aiResults.length === 0 && (
+            <div className="p-6 text-center">
+              <p className="text-muted-foreground">No majors found for "{query}"</p>
+              <p className="text-sm text-muted-foreground mt-2">Try describing what you enjoy or a career interest</p>
+            </div>
+          )}
         </div>
       )}
     </div>
