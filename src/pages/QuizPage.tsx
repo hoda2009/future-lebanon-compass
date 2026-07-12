@@ -664,8 +664,9 @@ const QuizPage = () => {
             ))}
           </div>
 
-          {currentQuestion === 0 && (
+          {(
             <div className="mt-8 pt-6 border-t border-white/10 flex flex-col items-center gap-3">
+
               <p className="text-xs uppercase tracking-wider text-muted-foreground">
                 Or answer with your voice
               </p>
