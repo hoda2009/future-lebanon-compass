@@ -1,10 +1,4 @@
 project_id = "dgqcfhrbniwfebbcyzuk"
 
-[functions.quiz-insights]
-verify_jwt = false
-
-[functions.smart-search]
-verify_jwt = false
-
 [functions.voice-transcribe]
 verify_jwt = false
