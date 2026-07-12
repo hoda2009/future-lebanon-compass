@@ -127,13 +127,13 @@ const QuizPage = () => {
     const text = transcript.toLowerCase();
     const words = text.split(/\W+/).filter((w) => w.length > 2);
     const categoryKeywords: Record<ThemeCategory, string[]> = {
-      engineering: ['build', 'building', 'fix', 'fixing', 'tech', 'technical', 'technology', 'engineer', 'engineering', 'code', 'coding', 'computer', 'machine', 'robot', 'gadget'],
-      medicine: ['help', 'helping', 'people', 'health', 'heal', 'healing', 'doctor', 'medical', 'medicine', 'care', 'patient', 'better', 'sick', 'hospital'],
-      business: ['money', 'deal', 'deals', 'wealth', 'rich', 'business', 'sell', 'selling', 'market', 'invest', 'grow', 'growing', 'profit', 'entrepreneur'],
-      general: ['create', 'creating', 'beautiful', 'meaningful', 'art', 'artistic', 'design', 'creative', 'write', 'writing', 'music', 'story', 'culture'],
+      engineering: ['build', 'building', 'fix', 'fixing', 'tech', 'technical', 'technology', 'engineer', 'engineering', 'code', 'coding', 'computer', 'machine', 'robot', 'gadget', 'lab', 'science', 'innovation', 'problem', 'solve'],
+      medicine: ['help', 'helping', 'people', 'health', 'heal', 'healing', 'doctor', 'medical', 'medicine', 'care', 'patient', 'better', 'sick', 'hospital', 'wellness', 'body', 'emotional', 'support'],
+      business: ['money', 'deal', 'deals', 'wealth', 'rich', 'business', 'sell', 'selling', 'market', 'invest', 'grow', 'growing', 'profit', 'entrepreneur', 'office', 'lead', 'leader', 'strategy'],
+      general: ['create', 'creating', 'beautiful', 'meaningful', 'art', 'artistic', 'design', 'creative', 'write', 'writing', 'music', 'story', 'culture', 'studio', 'inspire', 'idea', 'ideas'],
     };
     let best: { id: string; category: ThemeCategory; score: number } | null = null;
-    for (const opt of quizQuestions[0].options) {
+    for (const opt of quizQuestions[currentQuestion].options) {
       const optWords = opt.text.toLowerCase().split(/\W+/).filter((w) => w.length > 2);
       let score = 0;
       for (const w of words) {
