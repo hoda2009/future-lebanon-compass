@@ -649,7 +649,9 @@ const QuizPage = () => {
               <button
                 key={option.id}
                 onClick={() => handleAnswer(option.category)}
-                className="glass rounded-2xl p-6 text-left hover:scale-[1.02] hover:bg-white/5 transition-all group animate-fade-in"
+                className={`glass rounded-2xl p-6 text-left hover:scale-[1.02] hover:bg-white/5 transition-all group animate-fade-in ${
+                  voiceMatchId === option.id ? 'ring-2 ring-primary bg-primary/10 scale-[1.02]' : ''
+                }`}
                 style={{ animationDelay: `${index * 100}ms` }}
               >
                 <span className="text-4xl block mb-4 group-hover:scale-110 transition-transform">
@@ -661,6 +663,48 @@ const QuizPage = () => {
               </button>
             ))}
           </div>
+
+          {currentQuestion === 0 && (
+            <div className="mt-8 pt-6 border-t border-white/10 flex flex-col items-center gap-3">
+              <p className="text-xs uppercase tracking-wider text-muted-foreground">
+                Or answer with your voice
+              </p>
+              <button
+                onClick={isRecording ? stopRecording : startRecording}
+                disabled={isTranscribing}
+                className={`inline-flex items-center gap-2 px-6 py-3 rounded-full font-medium transition-all disabled:opacity-50 ${
+                  isRecording
+                    ? 'bg-red-500/20 border border-red-500/40 text-red-300 animate-pulse'
+                    : 'glass border border-primary/30 text-foreground hover:bg-primary/10'
+                }`}
+              >
+                {isTranscribing ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Listening for your answer...
+                  </>
+                ) : isRecording ? (
+                  <>
+                    <Square className="w-5 h-5 fill-current" />
+                    Stop Recording
+                  </>
+                ) : (
+                  <>
+                    <Mic className="w-5 h-5" />
+                    Speak Your Answer
+                  </>
+                )}
+              </button>
+              {voiceTranscript && (
+                <p className="text-sm text-muted-foreground italic max-w-md text-center">
+                  &ldquo;{voiceTranscript}&rdquo;
+                </p>
+              )}
+              {voiceError && (
+                <p className="text-sm text-red-400">{voiceError}</p>
+              )}
+            </div>
+          )}
         </div>
 
         {currentQuestion > 0 && (
