@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { quizQuestions, calculateQuizResult, categoryDescriptions } from '@/data/quizQuestions';
 import { ThemeCategory, useTheme } from '@/contexts/ThemeContext';
