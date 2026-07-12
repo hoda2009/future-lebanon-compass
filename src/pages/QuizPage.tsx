@@ -5,7 +5,7 @@ import { ThemeCategory, useTheme } from '@/contexts/ThemeContext';
 import { Confetti } from '@/components/Confetti';
 import { majors } from '@/data/majors';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowRight, ArrowLeft, Sparkles, RotateCcw, Share2, Loader2, TrendingDown } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Sparkles, RotateCcw, Share2, Loader2, TrendingDown, Mic, Square } from 'lucide-react';
 
 type Insights = {
   personalized: string;
