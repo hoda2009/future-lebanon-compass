@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { quizQuestions, calculateQuizResult, categoryDescriptions } from '@/data/quizQuestions';
 import { ThemeCategory, useTheme } from '@/contexts/ThemeContext';
 import { Confetti } from '@/components/Confetti';
 import { majors } from '@/data/majors';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowRight, ArrowLeft, Sparkles, RotateCcw, Share2, Loader2, TrendingDown } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Sparkles, RotateCcw, Share2, Loader2, TrendingDown, Mic, Square } from 'lucide-react';
 
 type Insights = {
   personalized: string;
@@ -31,6 +31,13 @@ const QuizPage = () => {
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [insightsError, setInsightsError] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const [voiceTranscript, setVoiceTranscript] = useState<string | null>(null);
+  const [voiceMatchId, setVoiceMatchId] = useState<string | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   const { setTheme } = useTheme();
   const navigate = useNavigate();
 
@@ -108,8 +115,98 @@ const QuizPage = () => {
   const handleAnswer = (category: ThemeCategory) => {
     const newAnswers = [...answers, category];
     setAnswers(newAnswers);
+    setVoiceTranscript(null);
+    setVoiceMatchId(null);
+    setVoiceError(null);
     if (currentQuestion < quizQuestions.length - 1) {
       setCurrentQuestion(currentQuestion + 1);
+    }
+  };
+
+  const matchTranscriptToOption = (transcript: string) => {
+    const text = transcript.toLowerCase();
+    const words = text.split(/\W+/).filter((w) => w.length > 2);
+    const categoryKeywords: Record<ThemeCategory, string[]> = {
+      engineering: ['build', 'building', 'fix', 'fixing', 'tech', 'technical', 'technology', 'engineer', 'engineering', 'code', 'coding', 'computer', 'machine', 'robot', 'gadget'],
+      medicine: ['help', 'helping', 'people', 'health', 'heal', 'healing', 'doctor', 'medical', 'medicine', 'care', 'patient', 'better', 'sick', 'hospital'],
+      business: ['money', 'deal', 'deals', 'wealth', 'rich', 'business', 'sell', 'selling', 'market', 'invest', 'grow', 'growing', 'profit', 'entrepreneur'],
+      general: ['create', 'creating', 'beautiful', 'meaningful', 'art', 'artistic', 'design', 'creative', 'write', 'writing', 'music', 'story', 'culture'],
+    };
+    let best: { id: string; category: ThemeCategory; score: number } | null = null;
+    for (const opt of quizQuestions[0].options) {
+      const optWords = opt.text.toLowerCase().split(/\W+/).filter((w) => w.length > 2);
+      let score = 0;
+      for (const w of words) {
+        if (optWords.includes(w)) score += 2;
+        if (categoryKeywords[opt.category].includes(w)) score += 3;
+      }
+      if (!best || score > best.score) best = { id: opt.id, category: opt.category, score };
+    }
+    return best && best.score > 0 ? best : null;
+  };
+
+  const startRecording = async () => {
+    setVoiceError(null);
+    setVoiceTranscript(null);
+    setVoiceMatchId(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mime = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
+      const recorder = new MediaRecorder(stream, { mimeType: mime });
+      audioChunksRef.current = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(audioChunksRef.current, { type: mime });
+        if (blob.size < 1024) {
+          setVoiceError('Recording was too short — try again.');
+          return;
+        }
+        setIsTranscribing(true);
+        try {
+          const ext = mime.includes('mp4') ? 'mp4' : 'webm';
+          const file = new File([blob], `recording.${ext}`, { type: mime });
+          const form = new FormData();
+          form.append('file', file);
+          const { data, error } = await supabase.functions.invoke('voice-transcribe', {
+            body: form,
+          });
+          if (error) throw error;
+          const transcript = (data as { text?: string })?.text?.trim() ?? '';
+          if (!transcript) {
+            setVoiceError("Couldn't hear you clearly — try again.");
+            return;
+          }
+          setVoiceTranscript(transcript);
+          const match = matchTranscriptToOption(transcript);
+          if (match) {
+            setVoiceMatchId(match.id);
+            setTimeout(() => handleAnswer(match.category), 900);
+          } else {
+            setVoiceError("Couldn't match your answer — try tapping an option.");
+          }
+        } catch (err) {
+          console.error('Transcription failed:', err);
+          setVoiceError('Transcription failed. Please try again.');
+        } finally {
+          setIsTranscribing(false);
+        }
+      };
+      mediaRecorderRef.current = recorder;
+      recorder.start();
+      setIsRecording(true);
+    } catch (err) {
+      console.error('Mic error:', err);
+      setVoiceError('Microphone access denied.');
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
     }
   };
 
@@ -552,7 +649,9 @@ const QuizPage = () => {
               <button
                 key={option.id}
                 onClick={() => handleAnswer(option.category)}
-                className="glass rounded-2xl p-6 text-left hover:scale-[1.02] hover:bg-white/5 transition-all group animate-fade-in"
+                className={`glass rounded-2xl p-6 text-left hover:scale-[1.02] hover:bg-white/5 transition-all group animate-fade-in ${
+                  voiceMatchId === option.id ? 'ring-2 ring-primary bg-primary/10 scale-[1.02]' : ''
+                }`}
                 style={{ animationDelay: `${index * 100}ms` }}
               >
                 <span className="text-4xl block mb-4 group-hover:scale-110 transition-transform">
@@ -564,6 +663,48 @@ const QuizPage = () => {
               </button>
             ))}
           </div>
+
+          {currentQuestion === 0 && (
+            <div className="mt-8 pt-6 border-t border-white/10 flex flex-col items-center gap-3">
+              <p className="text-xs uppercase tracking-wider text-muted-foreground">
+                Or answer with your voice
+              </p>
+              <button
+                onClick={isRecording ? stopRecording : startRecording}
+                disabled={isTranscribing}
+                className={`inline-flex items-center gap-2 px-6 py-3 rounded-full font-medium transition-all disabled:opacity-50 ${
+                  isRecording
+                    ? 'bg-red-500/20 border border-red-500/40 text-red-300 animate-pulse'
+                    : 'glass border border-primary/30 text-foreground hover:bg-primary/10'
+                }`}
+              >
+                {isTranscribing ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Listening for your answer...
+                  </>
+                ) : isRecording ? (
+                  <>
+                    <Square className="w-5 h-5 fill-current" />
+                    Stop Recording
+                  </>
+                ) : (
+                  <>
+                    <Mic className="w-5 h-5" />
+                    Speak Your Answer
+                  </>
+                )}
+              </button>
+              {voiceTranscript && (
+                <p className="text-sm text-muted-foreground italic max-w-md text-center">
+                  &ldquo;{voiceTranscript}&rdquo;
+                </p>
+              )}
+              {voiceError && (
+                <p className="text-sm text-red-400">{voiceError}</p>
+              )}
+            </div>
+          )}
         </div>
 
         {currentQuestion > 0 && (
