@@ -115,8 +115,98 @@ const QuizPage = () => {
   const handleAnswer = (category: ThemeCategory) => {
     const newAnswers = [...answers, category];
     setAnswers(newAnswers);
+    setVoiceTranscript(null);
+    setVoiceMatchId(null);
+    setVoiceError(null);
     if (currentQuestion < quizQuestions.length - 1) {
       setCurrentQuestion(currentQuestion + 1);
+    }
+  };
+
+  const matchTranscriptToOption = (transcript: string) => {
+    const text = transcript.toLowerCase();
+    const words = text.split(/\W+/).filter((w) => w.length > 2);
+    const categoryKeywords: Record<ThemeCategory, string[]> = {
+      engineering: ['build', 'building', 'fix', 'fixing', 'tech', 'technical', 'technology', 'engineer', 'engineering', 'code', 'coding', 'computer', 'machine', 'robot', 'gadget'],
+      medicine: ['help', 'helping', 'people', 'health', 'heal', 'healing', 'doctor', 'medical', 'medicine', 'care', 'patient', 'better', 'sick', 'hospital'],
+      business: ['money', 'deal', 'deals', 'wealth', 'rich', 'business', 'sell', 'selling', 'market', 'invest', 'grow', 'growing', 'profit', 'entrepreneur'],
+      general: ['create', 'creating', 'beautiful', 'meaningful', 'art', 'artistic', 'design', 'creative', 'write', 'writing', 'music', 'story', 'culture'],
+    };
+    let best: { id: string; category: ThemeCategory; score: number } | null = null;
+    for (const opt of quizQuestions[0].options) {
+      const optWords = opt.text.toLowerCase().split(/\W+/).filter((w) => w.length > 2);
+      let score = 0;
+      for (const w of words) {
+        if (optWords.includes(w)) score += 2;
+        if (categoryKeywords[opt.category].includes(w)) score += 3;
+      }
+      if (!best || score > best.score) best = { id: opt.id, category: opt.category, score };
+    }
+    return best && best.score > 0 ? best : null;
+  };
+
+  const startRecording = async () => {
+    setVoiceError(null);
+    setVoiceTranscript(null);
+    setVoiceMatchId(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mime = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
+      const recorder = new MediaRecorder(stream, { mimeType: mime });
+      audioChunksRef.current = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(audioChunksRef.current, { type: mime });
+        if (blob.size < 1024) {
+          setVoiceError('Recording was too short — try again.');
+          return;
+        }
+        setIsTranscribing(true);
+        try {
+          const ext = mime.includes('mp4') ? 'mp4' : 'webm';
+          const file = new File([blob], `recording.${ext}`, { type: mime });
+          const form = new FormData();
+          form.append('file', file);
+          const { data, error } = await supabase.functions.invoke('voice-transcribe', {
+            body: form,
+          });
+          if (error) throw error;
+          const transcript = (data as { text?: string })?.text?.trim() ?? '';
+          if (!transcript) {
+            setVoiceError("Couldn't hear you clearly — try again.");
+            return;
+          }
+          setVoiceTranscript(transcript);
+          const match = matchTranscriptToOption(transcript);
+          if (match) {
+            setVoiceMatchId(match.id);
+            setTimeout(() => handleAnswer(match.category), 900);
+          } else {
+            setVoiceError("Couldn't match your answer — try tapping an option.");
+          }
+        } catch (err) {
+          console.error('Transcription failed:', err);
+          setVoiceError('Transcription failed. Please try again.');
+        } finally {
+          setIsTranscribing(false);
+        }
+      };
+      mediaRecorderRef.current = recorder;
+      recorder.start();
+      setIsRecording(true);
+    } catch (err) {
+      console.error('Mic error:', err);
+      setVoiceError('Microphone access denied.');
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
     }
   };
 
