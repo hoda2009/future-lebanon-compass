@@ -45,7 +45,8 @@ export function RainbowSearch() {
           const names: string[] = data?.majors ?? [];
           const matched = names
             .map((n) => allMajors.find((m) => m.name === n))
-            .filter((m): m is Major => Boolean(m));
+            .filter((m): m is Major => Boolean(m))
+            .slice(0, 6);
           setAiResults(matched);
         } catch (e) {
           if (reqId === aiReqIdRef.current) setAiResults([]);
