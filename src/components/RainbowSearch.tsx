@@ -132,7 +132,7 @@ export function RainbowSearch() {
 
       {/* AI fallback */}
       {isOpen && showAiSection && (
-        <div className="relative w-full mt-2 glass-strong rounded-xl overflow-hidden animate-fade-in max-h-[340px] overflow-y-auto">
+        <div className="relative w-full mt-2 glass-strong rounded-xl overflow-hidden animate-fade-in max-h-[340px] overflow-y-auto custom-scrollbar">
           {aiLoading && (
             <div className="px-4 py-4 flex items-center gap-3 text-muted-foreground">
               <Loader2 className="w-4 h-4 animate-spin text-primary" />
