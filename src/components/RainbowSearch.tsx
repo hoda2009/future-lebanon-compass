@@ -26,7 +26,7 @@ export function RainbowSearch() {
       return;
     }
 
-    const searchResults = searchMajors(q).slice(0, 8);
+    const searchResults = searchMajors(q).slice(0, 6);
     setResults(searchResults);
     setIsOpen(true);
     setAiResults([]);
