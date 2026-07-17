@@ -106,7 +106,7 @@ export function RainbowSearch() {
 
       {/* Direct match results */}
       {isOpen && results.length > 0 && (
-        <div className="absolute top-full left-0 right-0 mt-2 glass-strong rounded-xl overflow-hidden z-50 animate-fade-in">
+        <div className="relative w-full mt-2 glass-strong rounded-xl overflow-hidden animate-fade-in">
           {results.map((major, index) => (
             <button
               key={major.id}
