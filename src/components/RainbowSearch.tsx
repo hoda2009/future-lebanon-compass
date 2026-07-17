@@ -26,7 +26,7 @@ export function RainbowSearch() {
       return;
     }
 
-    const searchResults = searchMajors(q).slice(0, 8);
+    const searchResults = searchMajors(q).slice(0, 6);
     setResults(searchResults);
     setIsOpen(true);
     setAiResults([]);
@@ -45,7 +45,8 @@ export function RainbowSearch() {
           const names: string[] = data?.majors ?? [];
           const matched = names
             .map((n) => allMajors.find((m) => m.name === n))
-            .filter((m): m is Major => Boolean(m));
+            .filter((m): m is Major => Boolean(m))
+            .slice(0, 6);
           setAiResults(matched);
         } catch (e) {
           if (reqId === aiReqIdRef.current) setAiResults([]);
@@ -106,7 +107,7 @@ export function RainbowSearch() {
 
       {/* Direct match results */}
       {isOpen && results.length > 0 && (
-        <div className="relative w-full mt-2 glass-strong rounded-xl overflow-hidden animate-fade-in">
+        <div className="relative w-full mt-2 glass-strong rounded-xl overflow-hidden animate-fade-in max-h-[360px] overflow-y-auto custom-scrollbar">
           {results.map((major, index) => (
             <button
               key={major.id}
@@ -131,7 +132,7 @@ export function RainbowSearch() {
 
       {/* AI fallback */}
       {isOpen && showAiSection && (
-        <div className="relative w-full mt-2 glass-strong rounded-xl overflow-hidden animate-fade-in">
+        <div className="relative w-full mt-2 glass-strong rounded-xl overflow-hidden animate-fade-in max-h-[400px] overflow-y-auto custom-scrollbar">
           {aiLoading && (
             <div className="px-4 py-4 flex items-center gap-3 text-muted-foreground">
               <Loader2 className="w-4 h-4 animate-spin text-primary" />
